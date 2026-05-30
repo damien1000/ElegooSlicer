@@ -133,6 +133,9 @@ static int run_script(const std::string &script, const std::string &gcode, std::
     } else if (boost::iends_with(command, ".bat")) {
         // Run a batch file through the command line interpreter.
         command_line = L"cmd.exe /C ";
+    } else if (boost::iends_with(command, L".py")) {
+        // Run a Python script through the interpreter found in PATH.
+        command_line = L"cmd.exe /C python ";
     }
 
     for (int i = 0; i < nArgs; ++ i) {
