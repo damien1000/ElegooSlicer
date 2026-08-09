@@ -4761,9 +4761,19 @@ std::string GCode::extrude_loop(ExtrusionLoop loop, std::string description, dou
         loop.split_at(last_pos, false);
 
     const auto seam_scarf_type = m_config.seam_slope_type.value;
+    // Determine the wall role of the loop while ignoring overhang segments, so that scarf
+    // joints are applied to all seams, including loops whose seam lands on an overhang
+    // segment (loop.role() only reports the role of the first path).
+    ExtrusionRole scarf_wall_role = loop.role();
+    if (scarf_wall_role != erExternalPerimeter && scarf_wall_role != erPerimeter)
+        for (const ExtrusionPath &path : loop.paths)
+            if (path.role() == erExternalPerimeter || path.role() == erPerimeter) {
+                scarf_wall_role = path.role();
+                break;
+            }
     bool enable_seam_slope = ((seam_scarf_type == SeamScarfType::External && !is_hole) || seam_scarf_type == SeamScarfType::All) &&
         !m_config.spiral_mode &&
-        (loop.role() == erExternalPerimeter || (loop.role() == erPerimeter && m_config.seam_slope_inner_walls)) &&
+        (scarf_wall_role == erExternalPerimeter || (scarf_wall_role == erPerimeter && m_config.seam_slope_inner_walls)) &&
         layer_id() > 0;
     const auto nozzle_diameter = EXTRUDER_CONFIG(nozzle_diameter);
     if (enable_seam_slope && m_config.seam_slope_conditional.value) {
@@ -4786,6 +4796,28 @@ std::string GCode::extrude_loop(ExtrusionLoop loop, std::string description, dou
     ExtrusionPaths paths;
     loop.clip_end(clip_length, &paths);
     if (paths.empty()) return "";
+
+    if (clip_length < 0) {
+        // Negative seam gap: instead of clipping, extend the loop past its start point
+        // so the end of the loop overlaps the seam by |seam_gap|.
+        double remaining = -clip_length;
+        ExtrusionPaths overlap_paths;
+        for (const ExtrusionPath &path : paths) {
+            if (remaining <= 0)
+                break;
+            ExtrusionPath extension = path;
+            const double len = extension.length();
+            if (len > remaining) {
+                extension.polyline.clip_end(len - remaining);
+                remaining = 0;
+            } else {
+                remaining -= len;
+            }
+            if (extension.polyline.is_valid())
+                overlap_paths.emplace_back(std::move(extension));
+        }
+        paths.insert(paths.end(), std::make_move_iterator(overlap_paths.begin()), std::make_move_iterator(overlap_paths.end()));
+    }
 
     // SoftFever: check loop lenght for small perimeter. 
     double small_peri_speed = -1;

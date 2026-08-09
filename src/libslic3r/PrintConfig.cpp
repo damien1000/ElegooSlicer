@@ -4429,9 +4429,10 @@ void PrintConfigDef::init_fff_params()
     def = this->add("seam_gap", coFloatOrPercent);
     def->label = L("Seam gap");
     def->tooltip = L("In order to reduce the visibility of the seam in a closed loop extrusion, the loop is interrupted and shortened by a specified amount.\n"
-                     "This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%.");
+                     "This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%. "
+                     "Negative values extend the loop past its start point instead, creating an overlap at the seam.");
     def->sidetext = L("mm or %");
-    def->min = 0;
+    def->min = -1;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(10,true));
 

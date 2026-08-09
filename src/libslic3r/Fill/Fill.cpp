@@ -1232,7 +1232,7 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
         // Maximum length of the perimeter segment linking two infill lines.
         f->link_max_length = (coord_t)scale_(link_max_length);
         // Used by the concentric infill pattern to clip the loops to create extrusion paths.
-        f->loop_clipping = coord_t(scale_(layerm->region().config().seam_gap.get_abs_value(surface_fill.params.flow.nozzle_diameter())));
+        f->loop_clipping = coord_t(scale_(std::max(0., layerm->region().config().seam_gap.get_abs_value(surface_fill.params.flow.nozzle_diameter()))));
 
         // apply half spacing using this flow's own spacing and generate infill
         FillParams params;
@@ -1413,7 +1413,7 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
         // Maximum length of the perimeter segment linking two infill lines.
         f->link_max_length = (coord_t) scale_(link_max_length);
         // Used by the concentric infill pattern to clip the loops to create extrusion paths.
-        f->loop_clipping = coord_t(scale_(layerm.region().config().seam_gap.get_abs_value(surface_fill.params.flow.nozzle_diameter())));
+        f->loop_clipping = coord_t(scale_(std::max(0., layerm.region().config().seam_gap.get_abs_value(surface_fill.params.flow.nozzle_diameter()))));
 
         // apply half spacing using this flow's own spacing and generate infill
         FillParams params;

@@ -924,18 +924,8 @@ void BackgroundSlicingProcess::prepare_upload()
 		    if (copy_file(m_temp_output_path, source_path.string(), error_message) != SUCCESS)
 		    	throw Slic3r::RuntimeError(_utf8(L("Copying of the temporary G-code to the output G-code failed")));
             m_upload_job.upload_data.upload_path = m_fff_print->print_statistics().finalize_output_path(m_upload_job.upload_data.upload_path.string());
-		    // Orca: skip post-processing scripts for BBL printers as we have run them already in finalize_gcode()
-		    // todo: do we need to copy the file?
-		
-            // Make a copy of the source path, as run_post_process_scripts() is allowed to change it when making a copy of the source file
-            // (not here, but when the final target is a file). 
-            if (!m_fff_print->is_BBL_printer()) {
-                std::string source_path_str = source_path.string();
-                std::string output_name_str = m_upload_job.upload_data.upload_path.string();
-                if (run_post_process_scripts(source_path_str, false, m_upload_job.printhost->get_name(), output_name_str,
-                                             m_fff_print->full_print_config()))
-			    m_upload_job.upload_data.upload_path = output_name_str;
-			}
+			// Post-processing was already applied in process_fff during slicing; the temp file
+			// (copied to source_path above) is already modified. Skip re-running the script here.
 		}
     } else {
         m_upload_job.upload_data.upload_path = m_sla_print->print_statistics().finalize_output_path(m_upload_job.upload_data.upload_path.string());
