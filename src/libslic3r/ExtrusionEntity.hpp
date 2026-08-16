@@ -535,14 +535,14 @@ public:
     std::vector<ExtrusionPathSloped> ends;
 
     ExtrusionLoopSloped(ExtrusionPaths& original_paths,
-                        double          seam_gap,
+                        double          clip_end_length,
                         double          slope_min_length,
                         double          slope_max_segment_length,
                         double          start_slope_ratio,
                         ExtrusionLoopRole role = elrDefault);
 
     [[nodiscard]] std::vector<const ExtrusionPath*> get_all_paths() const;
-    void clip_slope(double distance, bool inter_perimeter = false );
+    void clip_slope(double distance, bool clip_start = true, bool clip_the_end = true, bool inter_perimeter = false );
     void clip_end(const double distance);
     void clip_front(const double distance);
     double slope_path_length();

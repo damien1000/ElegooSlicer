@@ -242,8 +242,19 @@ void BackgroundSlicingProcess::process_fff()
 		//BBS: add plate index into render params
 		m_temp_output_path = this->get_current_plate()->get_tmp_gcode_path();
 		m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) { return this->render_thumbnails(params); });
-		if(m_fff_print->is_BBL_printer())
-			run_post_process_scripts(m_temp_output_path, false, "File", m_temp_output_path, m_fff_print->full_print_config());
+		// Run the post-processing scripts here, for every printer (not just BBL), so that the
+		// preview and the exported/uploaded file all show the post-processed G-code. The result
+		// is re-parsed from the modified temp file so the preview matches what will be printed.
+		// The later calls in finalize_gcode()/prepare_upload() are skipped to avoid processing twice.
+		try {
+			if (run_post_process_scripts(m_temp_output_path, false, "File", m_temp_output_path, m_fff_print->full_print_config())) {
+				GCodeProcessor processor;
+				processor.process_file(m_temp_output_path);
+				*m_gcode_result = std::move(processor.extract_result());
+			}
+		} catch (const std::exception &ex) {
+			BOOST_LOG_TRIVIAL(error) << "Post-processing script error: " << ex.what();
+		}
 
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": export gcode finished");
 	}
@@ -796,12 +807,10 @@ void BackgroundSlicingProcess::finalize_gcode()
 	// Perform the final post-processing of the export path by applying the print statistics over the file name.
 	std::string export_path = m_fff_print->print_statistics().finalize_output_path(m_export_path);
 	std::string output_path = m_temp_output_path;
-	// Both output_path and export_path ar in-out parameters.
-	// If post processed, output_path will differ from m_temp_output_path as run_post_process_scripts() will make a copy of the G-code to not
-	// collide with the G-code viewer memory mapping of the unprocessed G-code. G-code viewer maps unprocessed G-code, because m_gcode_result 
-	// is calculated for the unprocessed G-code and it references lines in the memory mapped G-code file by line numbers.
-	// export_path may be changed by the post-processing script as well if the post processing script decides so, see GH #6042.
-	bool post_processed = run_post_process_scripts(output_path, true, "File", export_path, m_fff_print->full_print_config());
+	// Post-processing was already applied in process_fff() during slicing: the temp file is
+	// already modified and m_gcode_result was re-parsed from it. Skip re-running the scripts
+	// here — just copy the already-processed temp file to the export destination.
+	bool post_processed = false;
 	auto remove_post_processed_temp_file = [post_processed, &output_path]() {
 		if (post_processed)
 			try {
@@ -922,18 +931,9 @@ void BackgroundSlicingProcess::prepare_upload()
 		    if (copy_file(m_temp_output_path, source_path.string(), error_message) != SUCCESS)
 		    	throw Slic3r::RuntimeError(_utf8(L("Copying of the temporary G-code to the output G-code failed")));
             m_upload_job.upload_data.upload_path = m_fff_print->print_statistics().finalize_output_path(m_upload_job.upload_data.upload_path.string());
-		    // Orca: skip post-processing scripts for BBL printers as we have run them already in finalize_gcode()
-		    // todo: do we need to copy the file?
-		
-            // Make a copy of the source path, as run_post_process_scripts() is allowed to change it when making a copy of the source file
-            // (not here, but when the final target is a file).
-            if (!m_fff_print->is_BBL_printer()) {
-                std::string source_path_str = source_path.string();
-                std::string output_name_str = m_upload_job.upload_data.upload_path.string();
-                if (run_post_process_scripts(source_path_str, false, m_upload_job.printhost->get_name(), output_name_str,
-                                             m_fff_print->full_print_config()))
-			    m_upload_job.upload_data.upload_path = output_name_str;
-			}
+		    // Post-processing was already applied in process_fff() during slicing; the temp file
+		    // copied to source_path above is already modified. Skip re-running the scripts here,
+		    // otherwise the upload would be post-processed a second time.
 		}
     } else {
         m_upload_job.upload_data.upload_path = m_sla_print->print_statistics().finalize_output_path(m_upload_job.upload_data.upload_path.string());

@@ -5529,9 +5529,10 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Seam gap");
     def->category = L("Quality");
     def->tooltip = L("In order to reduce the visibility of the seam in a closed loop extrusion, the loop is interrupted and shortened by a specified amount.\n"
-                     "This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%.");
+                     "This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%. "
+                     "Negative values extend the loop past its start point instead, creating an overlap at the seam.");
     def->sidetext = L("mm or %");
-    def->min = 0;
+    def->min = -1;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(10,true));
 
@@ -5644,6 +5645,35 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Use scarf joint for inner walls as well.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("seam_slope_clip_start", coBool);
+    def->label = L("Clip scarf start");
+    def->category = L("Quality");
+    def->tooltip = L("Shorten the beginning of the scarf ramp, leaving a small gap where the scarf starts.\n"
+                     "Disabling this keeps the full ramp, so the thin start of the scarf is still printed. "
+                     "Enabling it leaves the bottom of the layer unfilled at the seam, which can show up as a void.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("seam_slope_clip_end", coBool);
+    def->label = L("Trim scarf end");
+    def->category = L("Quality");
+    def->tooltip = L("Remove the tail of the scarf where the flow has tapered down to almost nothing.\n"
+                     "Those near-zero extrusions cannot be delivered reliably, especially with pressure advance "
+                     "enabled, and can make the extrusion stop before the end of the scarf. Recommended.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("seam_slope_clip_length", coFloat);
+    def->label = L("Scarf clip length");
+    def->category = L("Quality");
+    def->tooltip = L("How much to clip/trim at the scarf ends, used by the two options above.\n"
+                     "This is independent of the seam gap, so a negative seam gap can be used for seam overlap "
+                     "while still trimming the scarf tail.");
+    def->sidetext = "mm";	// milimeters, don't need translation
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.4));
 
     def = this->add("role_based_wipe_speed", coBool);
     def->label = L("Role base wipe speed");

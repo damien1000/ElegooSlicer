@@ -176,7 +176,10 @@ bool Layer::is_perimeter_compatible(const PrintRegion& a, const PrintRegion& b)
         && config.seam_slope_entire_loop  == other_config.seam_slope_entire_loop
         && config.seam_slope_min_length   == other_config.seam_slope_min_length
         && config.seam_slope_steps        == other_config.seam_slope_steps
-        && config.seam_slope_inner_walls  == other_config.seam_slope_inner_walls;
+        && config.seam_slope_inner_walls  == other_config.seam_slope_inner_walls
+        && config.seam_slope_clip_start   == other_config.seam_slope_clip_start
+        && config.seam_slope_clip_end     == other_config.seam_slope_clip_end
+        && config.seam_slope_clip_length  == other_config.seam_slope_clip_length;
 }
 
 // Here the perimeters are created cummulatively for all layer regions sharing the same parameters influencing the perimeters.

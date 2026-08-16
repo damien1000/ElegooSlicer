@@ -423,8 +423,10 @@ bool ExtrusionLoop::is_smooth(double angle_threshold, double min_arm_length) con
     return true;
 }
 
+// clip_end_length: how much of the tapered-to-zero tail of the scarf to drop. Pass 0 to keep the
+// full taper. This used to be the seam gap, but the two are now separate settings.
 ExtrusionLoopSloped::ExtrusionLoopSloped(ExtrusionPaths&   original_paths,
-                                         double            seam_gap,
+                                         double            clip_end_length,
                                          double            slope_min_length,
                                          double            slope_max_segment_length,
                                          double            start_slope_ratio,
@@ -432,7 +434,7 @@ ExtrusionLoopSloped::ExtrusionLoopSloped(ExtrusionPaths&   original_paths,
     : ExtrusionLoop(role)
 {
     // create slopes
-    const auto add_slop = [this, slope_max_segment_length, seam_gap](const ExtrusionPath &path, const Polyline3 &poly, double ratio_begin, double ratio_end) {
+    const auto add_slop = [this, slope_max_segment_length, clip_end_length](const ExtrusionPath &path, const Polyline3 &poly, double ratio_begin, double ratio_end) {
         if (poly.empty()) { return; }
 
         // Ensure `slope_max_segment_length`
@@ -457,16 +459,16 @@ ExtrusionLoopSloped::ExtrusionLoopSloped(ExtrusionPaths&   original_paths,
 
         starts.emplace_back(detailed_poly, path, ExtrusionPathSloped::Slope{ratio_begin, ratio_begin}, ExtrusionPathSloped::Slope{ratio_end, ratio_end});
 
-        if (is_approx(ratio_end, 1.) && seam_gap > 0) {
+        if (is_approx(ratio_end, 1.) && clip_end_length > 0) {
             // Remove the segments that has no extrusion
             const auto seg_length = detailed_poly.length();
-            if (seg_length > seam_gap) {
-                // Split the segment and remove the last `seam_gap` bit
+            if (seg_length > clip_end_length) {
+                // Split the segment and remove the last `clip_end_length` bit
                 const Polyline3 orig = detailed_poly;
                 Polyline3       tmp;
-                orig.split_at_length(seg_length - seam_gap, &detailed_poly, &tmp);
+                orig.split_at_length(seg_length - clip_end_length, &detailed_poly, &tmp);
 
-                ratio_end = lerp(ratio_begin, ratio_end, (seg_length - seam_gap) / seg_length);
+                ratio_end = lerp(ratio_begin, ratio_end, (seg_length - clip_end_length) / seg_length);
                 assert(1. - ratio_end > EPSILON);
             } else {
                 // Remove the entire segment
@@ -524,11 +526,15 @@ std::vector<const ExtrusionPath*> ExtrusionLoopSloped::get_all_paths() const {
     return r;
 }
 
-void ExtrusionLoopSloped::clip_slope(double distance, bool inter_perimeter)
+void ExtrusionLoopSloped::clip_slope(double distance, bool clip_start, bool clip_the_end, bool inter_perimeter)
 {
-
-    this->clip_end(distance);
-    this->clip_front(distance*2);
+    // clip_the_end trims the tail of the scarf, where the flow has tapered to almost nothing.
+    // clip_start shortens the beginning of the ramp, which leaves the bottom of the layer
+    // unfilled at the seam - off by default, as that shows up as a void.
+    if (clip_the_end)
+        this->clip_end(distance);
+    if (clip_start)
+        this->clip_front(distance*2);
 }
 
 void ExtrusionLoopSloped::clip_end(const double distance)

@@ -1,0 +1,40 @@
+name: Build Windows (post-process patch)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build + Package
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: git lfs pull
+        run: git lfs pull
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Build dependencies
+        shell: cmd
+        run: build_release_windows.bat only_deps
+
+      - name: Build slicer + create installer
+        shell: cmd
+        run: build_release_windows.bat packinstall
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElegooSlicer-Windows-postprocess-patch
+          path: build/ElegooSlicer*.exe
+          retention-days: 30
